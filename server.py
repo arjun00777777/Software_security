@@ -5,12 +5,9 @@ import json
 import hmac
 import hashlib
 import logging
-import secrets
 import datetime
 import math
-from enum import Enum
 from functools import wraps
-from pathlib import Path
 from io import BytesIO
 
 from flask import Flask, request, jsonify, send_file, g
@@ -22,8 +19,6 @@ import jwt
 
 class Config:
     # RSA Key Size
-    # 2048 bits = 256 bytes.
-    # We use 2048 bits here to make the chunking slightly faster than 4096.
     RSA_KEY_BITS = 2048
     KEY_SIZE_BYTES = RSA_KEY_BITS // 8
     OAEP_OVERHEAD = 66
@@ -33,15 +28,14 @@ class Config:
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRY_SECONDS = 3600
     
-    # Storage Limits (Lowered to 1MB due to RSA slowness)
+    # Storage Limits
     MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024
     
     LOG_LEVEL = logging.INFO
 
-
 logging.basicConfig(
     level=Config.LOG_LEVEL,
-    format='%(asctime)s %(levelname)s %(name)s %(message)s'
+    format='%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s] %(message)s'
 )
 
 class RequestIdFilter(logging.Filter):
@@ -63,6 +57,7 @@ def audit(event: str, user_id: str = None, details: dict = None):
     }
     audit_logger.info(json.dumps(entry))
 
+
 users_db = {
     "alice": {
         "password_hash": hashlib.pbkdf2_hmac('sha256', b"Alice@Secret1!", b"salt_alice", 100_000).hex(),
@@ -80,7 +75,6 @@ users_db = {
 
 file_store = {}
 key_store = {}
-rate_limit_store = {}
 
 def generate_rsa_keypair(key_size: int = Config.RSA_KEY_BITS):
     private_key = rsa.generate_private_key(
@@ -98,14 +92,10 @@ def generate_rsa_keypair(key_size: int = Config.RSA_KEY_BITS):
     return private_pem, public_pem
 
 def encrypt_file_pure_rsa(plaintext: bytes, public_key_pem: bytes) -> bytes:
-    """
-    Encrypts a file using ONLY RSA by breaking it into chunks.
-    """
+    """Encrypts a file using ONLY RSA by breaking it into chunks."""
     public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
     ciphertext_buffer = BytesIO()
     
-    # Chunking Loop
-    # We must split the file because RSA cannot encrypt data larger than its key size
     total_chunks = math.ceil(len(plaintext) / Config.MAX_CHUNK_SIZE)
     
     for i in range(total_chunks):
@@ -113,7 +103,6 @@ def encrypt_file_pure_rsa(plaintext: bytes, public_key_pem: bytes) -> bytes:
         end = start + Config.MAX_CHUNK_SIZE
         chunk = plaintext[start:end]
         
-        # RSA-OAEP Encryption
         encrypted_chunk = public_key.encrypt(
             chunk,
             padding.OAEP(
@@ -127,13 +116,10 @@ def encrypt_file_pure_rsa(plaintext: bytes, public_key_pem: bytes) -> bytes:
     return ciphertext_buffer.getvalue()
 
 def decrypt_file_pure_rsa(ciphertext: bytes, private_key_pem: bytes) -> bytes:
-    """
-    Decrypts a Pure RSA encrypted file chunk-by-chunk.
-    """
+    """Decrypts a Pure RSA encrypted file chunk-by-chunk."""
     private_key = serialization.load_pem_private_key(private_key_pem, password=None, backend=default_backend())
     plaintext_buffer = BytesIO()
     
-    # The size of an encrypted RSA chunk is exactly the key size (in bytes)
     chunk_size = Config.KEY_SIZE_BYTES 
     
     if len(ciphertext) % chunk_size != 0:
@@ -218,7 +204,9 @@ def upload():
     if "file" not in request.files: return jsonify({"error": "No file"}), 400
     file = request.files["file"]
     content = file.read()
-    
+    if len(content) == 0:
+        return jsonify({"error": "File is empty"}), 400
+
     if len(content) > Config.MAX_FILE_SIZE_BYTES:
         return jsonify({"error": "File too large"}), 413
         
