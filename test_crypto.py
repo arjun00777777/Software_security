@@ -66,22 +66,18 @@ class TestRSAService(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_decrypt_tampered_data(self):
-        """Ensure decryption fails cleanly if data is tampered with."""
         priv, pub = generate_rsa_keypair(2048)
         original_data = b"Secret Data"
-
         encrypted = encrypt_file_pure_rsa(original_data, pub)
-
-        # Tamper with the ciphertext
+        
         tampered_mutable = bytearray(encrypted)
-        tampered_mutable[50] ^= 0xFF
+        tampered_mutable[50] = tampered_mutable[50] ^ 0xFF 
         tampered_encrypted = bytes(tampered_mutable)
-
-        # Expect an Exception to be raised
-        with self.assertRaises(Exception) as ctx:
+        try:
             decrypt_file_pure_rsa(tampered_encrypted, priv)
-
-        self.assertIn("Decryption failed", str(ctx.exception))
+            self.fail("Decryption should have failed but didn't!")
+        except Exception as decrypt_err: 
+            self.assertIn("Decryption failed", str(decrypt_err))
 
     def test_upload_too_large(self):
         """Ensure empty files are rejected with 400 Bad Request."""
