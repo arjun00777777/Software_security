@@ -18,7 +18,6 @@ class TestRSAService(unittest.TestCase):
                                  content_type='application/json')
         return json.loads(response.data)['token']
 
-    
     def test_rsa_key_generation(self):
         """Verify keys are generated at the correct size (2048 bits)."""
         priv, pub = generate_rsa_keypair(2048)
@@ -47,7 +46,6 @@ class TestRSAService(unittest.TestCase):
         
         self.assertEqual(large_data, decrypted)
 
-
     def test_upload_without_auth(self):
         """Ensure unauthenticated users cannot upload files."""
         response = self.app.post('/api/v1/files/upload', data={})
@@ -68,29 +66,29 @@ class TestRSAService(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_decrypt_tampered_data(self):
-    priv, pub = generate_rsa_keypair(2048)
-    original_data = b"Secret Data"
+        """Ensure decryption fails cleanly if data is tampered with."""
+        priv, pub = generate_rsa_keypair(2048)
+        original_data = b"Secret Data"
 
-    encrypted = encrypt_file_pure_rsa(original_data, pub)
+        encrypted = encrypt_file_pure_rsa(original_data, pub)
 
-    tampered_mutable = bytearray(encrypted)
-    tampered_mutable[50] ^= 0xFF
-    tampered_encrypted = bytes(tampered_mutable)
+        # Tamper with the ciphertext
+        tampered_mutable = bytearray(encrypted)
+        tampered_mutable[50] ^= 0xFF
+        tampered_encrypted = bytes(tampered_mutable)
 
-    with self.assertRaises(Exception) as ctx:
-        decrypt_file_pure_rsa(tampered_encrypted, priv)
+        # Expect an Exception to be raised
+        with self.assertRaises(Exception) as ctx:
+            decrypt_file_pure_rsa(tampered_encrypted, priv)
 
-    self.assertIn("Decryption failed", str(ctx.exception))
-
+        self.assertIn("Decryption failed", str(ctx.exception))
 
     def test_upload_too_large(self):
+        """Ensure empty files are rejected with 400 Bad Request."""
         response = self.app.post('/api/v1/files/upload', 
                                  headers={'Authorization': f'Bearer {self.valid_token}'},
                                  data={'file': (BytesIO(b""), 'empty.txt')})
         self.assertEqual(response.status_code, 400)
 
-
-
 if __name__ == '__main__':
-    import os
     unittest.main()
