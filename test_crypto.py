@@ -40,7 +40,6 @@ class TestRSAService(unittest.TestCase):
     def test_chunking_large_data(self):
         """Verify that files larger than one RSA block are chunked correctly."""
         priv, pub = generate_rsa_keypair(2048)
-        # Create data larger than 190 bytes (Config.MAX_CHUNK_SIZE)
         large_data = os.urandom(300) 
         
         encrypted = encrypt_file_pure_rsa(large_data, pub)
@@ -60,6 +59,35 @@ class TestRSAService(unittest.TestCase):
                                  data=json.dumps({'username': 'alice', 'password': 'WrongPassword!'}),
                                  content_type='application/json')
         self.assertEqual(response.status_code, 401)
+
+    def test_malformed_jwt_token(self):
+        """Ensure server rejects a garbage JWT token."""
+        response = self.app.post('/api/v1/files/upload', 
+                                 headers={'Authorization': 'Bearer NOT_A_REAL_TOKEN.BAD.DATA'},
+                                 data={})
+        self.assertEqual(response.status_code, 401)
+
+    def test_decrypt_tampered_data(self):
+        priv, pub = generate_rsa_keypair(2048)
+        original_data = b"Secret Data"
+        encrypted = encrypt_file_pure_rsa(original_data, pub)
+        tampered_mutable = bytearray(encrypted)
+        tampered_mutable[50] = tampered_mutable[50] ^ 0xFF # Flip bits
+        tampered_encrypted = bytes(tampered_mutable)
+        
+        try:
+            decrypt_file_pure_rsa(tampered_encrypted, priv)
+            self.fail("Decryption should have failed but didn't!")
+        except Exception as e:
+            self.assertTrue("Decryption failed" in str(e))
+
+    def test_upload_too_large(self):
+        response = self.app.post('/api/v1/files/upload', 
+                                 headers={'Authorization': f'Bearer {self.valid_token}'},
+                                 data={'file': (BytesIO(b""), 'empty.txt')})
+        self.assertEqual(response.status_code, 400)
+
+
 
 if __name__ == '__main__':
     import os
