@@ -4,3 +4,5 @@ pyjwt
 pytest
 bandit==1.7.5
 pbr
+safety
+flake8
