@@ -35,4 +35,4 @@ jobs:
     - name: Check for Syntax Errors
       run: |
         # This compiles the file to check for errors but doesn't run it
-        python -m py_compile crypto.py
+        python -m py_compile server.py
