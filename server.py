@@ -13,6 +13,7 @@ from io import BytesIO
 from flask import Flask, request, jsonify, send_file, g
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 import jwt
 NOT_FOUND_MSG = "Not found"
