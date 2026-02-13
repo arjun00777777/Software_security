@@ -26,7 +26,13 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         
-    - name: Check for Syntax Errors
+    - name: Security Scan (SAST) - Bandit
       run: |
-        # CHANGED: Now points to your actual filename 'server.py'
-        python -m py_compile server.py
+        # Run Bandit to check for security flaws
+        # -r: recursive, -ll: log level
+        bandit -r server.py -ll
+        
+    - name: Run Unit Tests
+      run: |
+        # Run the test suite we just created
+        python -m unittest test_crypto.py
