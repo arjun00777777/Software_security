@@ -1,5 +1,6 @@
 import unittest
 import json
+import os
 from io import BytesIO
 from server import app, generate_rsa_keypair, encrypt_file_pure_rsa, decrypt_file_pure_rsa, Config
 
