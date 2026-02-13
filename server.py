@@ -185,6 +185,24 @@ def require_role(*allowed_roles):
         return decorated
     return decorator
 
+@app.route("/api/v1/auth/register", methods=["POST"])
+def register():
+    data = request.json or {}
+    username = data.get("username")
+    password = data.get("password")
+    role = data.get("role", "encrypt_user") # Default role
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+        
+    if username in users_db:
+        return jsonify({"error": "User already exists"}), 409
+        
+    # Create the new user dynamically
+    users_db[username] = _make_user(password, role, "tenant-1")
+    
+    audit("register_success", username, {"role": role})
+    return jsonify({"message": f"User {username} registered successfully"}), 201
 
 @app.route("/api/v1/auth/login", methods=["POST"])
 def login():
