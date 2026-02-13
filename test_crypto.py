@@ -23,7 +23,6 @@ class TestSecureRSAService(unittest.TestCase):
         return json.loads(response.data)['token']
 
     def test_rsa_math_roundtrip(self):
-        """Verify the pure RSA chunking logic works without the API."""
         priv, pub = generate_rsa_keypair(2048)
         original_data = b"Start" + os.urandom(300) + b"End" 
         
@@ -33,7 +32,6 @@ class TestSecureRSAService(unittest.TestCase):
         self.assertEqual(original_data, decrypted)
 
     def test_decrypt_tampered_fails(self):
-        """Ensure bit-flipping causes a clean error, not a crash."""
         priv, pub = generate_rsa_keypair(2048)
         enc = encrypt_file_pure_rsa(b"Secret", pub)
         
@@ -45,8 +43,6 @@ class TestSecureRSAService(unittest.TestCase):
         self.assertIn("Decryption failed", str(ctx.exception))
 
     def test_admin_full_lifecycle(self):
-        """Admin has both roles, so they should be able to Upload -> Encrypt -> Decrypt."""
-        # 1. Upload
         res = self.app.post('/api/v1/files/upload', 
                             headers={'Authorization': f'Bearer {self.admin_token}'},
                             data={'file': (BytesIO(b"Super Secret Admin Data"), 'admin.txt')})
@@ -89,7 +85,15 @@ class TestSecureRSAService(unittest.TestCase):
         bobs_file_id = res.json['file_id']
         res = self.app.post(f'/api/v1/files/{bobs_file_id}/decrypt', 
                             headers={'Authorization': f'Bearer {self.admin_token}'})
-        self.assertEqual(res.status_code, 403) 
+        self.assertEqual(res.status_code, 403)
+
+    def test_dynamic_registration(self):
+        res = self.app.post('/api/v1/auth/register', 
+                            json={'username': 'eve', 'password': 'password123', 'role': 'encrypt_user'})
+        self.assertEqual(res.status_code, 201)
+        token = self.get_auth_token('eve', 'password123')
+        self.assertTrue(len(token) > 0)
+  
 
 if __name__ == '__main__':
     unittest.main()
