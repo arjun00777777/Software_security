@@ -79,7 +79,7 @@ class TestRSAService(unittest.TestCase):
             decrypt_file_pure_rsa(tampered_encrypted, priv)
             self.fail("Decryption should have failed but didn't!")
         except Exception as e:
-            self.assertIn("Decryption failed", str(decrypt_err))
+            self.assertIn("Decryption failed", str(ctx.exception))
 
     def test_upload_too_large(self):
         response = self.app.post('/api/v1/files/upload', 
