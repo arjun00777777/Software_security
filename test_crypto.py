@@ -68,18 +68,20 @@ class TestRSAService(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_decrypt_tampered_data(self):
-        priv, pub = generate_rsa_keypair(2048)
-        original_data = b"Secret Data"
-        encrypted = encrypt_file_pure_rsa(original_data, pub)
-        tampered_mutable = bytearray(encrypted)
-        tampered_mutable[50] = tampered_mutable[50] ^ 0xFF # Flip bits
-        tampered_encrypted = bytes(tampered_mutable)
-        
-        try:
-            decrypt_file_pure_rsa(tampered_encrypted, priv)
-            self.fail("Decryption should have failed but didn't!")
-        except Exception as e:
-            self.assertIn("Decryption failed", str(ctx.exception))
+    priv, pub = generate_rsa_keypair(2048)
+    original_data = b"Secret Data"
+
+    encrypted = encrypt_file_pure_rsa(original_data, pub)
+
+    tampered_mutable = bytearray(encrypted)
+    tampered_mutable[50] ^= 0xFF
+    tampered_encrypted = bytes(tampered_mutable)
+
+    with self.assertRaises(Exception) as ctx:
+        decrypt_file_pure_rsa(tampered_encrypted, priv)
+
+    self.assertIn("Decryption failed", str(ctx.exception))
+
 
     def test_upload_too_large(self):
         response = self.app.post('/api/v1/files/upload', 
