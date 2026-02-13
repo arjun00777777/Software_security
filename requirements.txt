@@ -2,3 +2,4 @@ flask
 cryptography
 pyjwt
 pytest
+bandit==1.7.5
